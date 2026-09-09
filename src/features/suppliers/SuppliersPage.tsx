@@ -210,7 +210,7 @@ export function SuppliersPage() {
   });
 
   return (
-    <div className="space-y-5 select-none" dir="rtl">
+    <div className="page-container space-y-5 select-none" dir="rtl">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
         <div>

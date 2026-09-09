@@ -439,7 +439,7 @@ export function SalesPage() {
   });
 
   return (
-    <div className="space-y-4 select-none" dir="rtl">
+    <div className="page-container space-y-4 select-none" dir="rtl">
       {/* Header and Tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
         <div className="flex items-center gap-3">

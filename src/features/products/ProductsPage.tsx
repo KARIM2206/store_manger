@@ -256,7 +256,7 @@ export function ProductsPage() {
   const pagedProducts = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
-    <div className="space-y-5 select-none" dir="rtl">
+    <div className="page-container space-y-5 select-none" dir="rtl">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-border pb-4">
         <div>
@@ -266,14 +266,15 @@ export function ProductsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button onClick={handleExportCSV} variant="outline" size="sm" className="gap-1.5 shadow-xs">
-            <Download className="h-4 w-4" />
-            <span>تصدير CSV</span>
+        <div className="flex items-center gap-2 w-full md:w-auto mt-2 md:mt-0">
+          <Button onClick={handleExportCSV} variant="outline" size="sm" className="gap-1.5 shadow-xs flex-1 md:flex-none">
+            <Download className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">تصدير CSV</span>
+            <span className="sm:hidden">تصدير</span>
           </Button>
           {canCreate && (
-            <Button onClick={openCreateDialog} size="sm" className="gap-1.5 shadow-xs">
-              <Plus className="h-4 w-4" />
+            <Button onClick={openCreateDialog} size="sm" className="gap-1.5 shadow-xs flex-1 md:flex-none">
+              <Plus className="h-4 w-4 shrink-0" />
               <span>إضافة منتج</span>
             </Button>
           )}
@@ -283,7 +284,7 @@ export function ProductsPage() {
       {/* Filter and Search Bar */}
       <Card className="border-border shadow-xs">
         <CardContent className="p-3">
-          <div className="flex flex-col sm:flex-row items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3">
             {/* Search Input */}
             <div className="relative w-full sm:flex-1">
               <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -293,8 +294,8 @@ export function ProductsPage() {
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                placeholder="بحث باسم المنتج، الكود، أو الباركود..."
-                className="pr-9 h-9 text-xs"
+                placeholder="بحث باسم المنتج، الكود..."
+                className="pr-9 h-9 text-xs w-full"
               />
             </div>
 

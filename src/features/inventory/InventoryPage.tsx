@@ -162,7 +162,7 @@ export function InventoryPage() {
   };
 
   return (
-    <div className="space-y-5 select-none" dir="rtl">
+    <div className="page-container space-y-5 select-none" dir="rtl">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
         <div>
@@ -173,24 +173,26 @@ export function InventoryPage() {
         </div>
 
         {canAdjust && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
             <Button
               onClick={() => openAdjustDialog("ADJUSTMENT_IN")}
               variant="outline"
               size="sm"
-              className="gap-1.5 shadow-xs text-success border-success/30 hover:bg-success/10"
+              className="gap-1.5 shadow-xs text-success border-success/30 hover:bg-success/10 flex-1 sm:flex-none"
             >
-              <ArrowDownLeft className="h-4 w-4" />
-              <span>إضافة للمخزون</span>
+              <ArrowDownLeft className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">إضافة للمخزون</span>
+              <span className="sm:hidden">إضافة</span>
             </Button>
             <Button
               onClick={() => openAdjustDialog("ADJUSTMENT_OUT")}
               variant="outline"
               size="sm"
-              className="gap-1.5 shadow-xs text-warning border-warning/30 hover:bg-warning/10"
+              className="gap-1.5 shadow-xs text-warning border-warning/30 hover:bg-warning/10 flex-1 sm:flex-none"
             >
-              <ArrowUpRight className="h-4 w-4" />
-              <span>سحب من المخزون</span>
+              <ArrowUpRight className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">سحب من المخزون</span>
+              <span className="sm:hidden">سحب</span>
             </Button>
           </div>
         )}

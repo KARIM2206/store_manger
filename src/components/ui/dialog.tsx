@@ -49,7 +49,7 @@ export function DialogContent({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-in fade-in-0">
       <div
         className={cn(
-          "relative w-full max-w-lg rounded-lg border border-border bg-card p-6 shadow-lg duration-200 text-right animate-in zoom-in-95",
+          "relative w-full max-w-lg max-h-[90vh] overflow-y-auto flex flex-col rounded-lg border border-border bg-card p-4 sm:p-6 shadow-lg duration-200 text-right animate-in zoom-in-95",
           className
         )}
       >

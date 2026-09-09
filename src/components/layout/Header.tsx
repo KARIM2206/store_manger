@@ -23,10 +23,11 @@ import { NotificationRow } from "@/types/database";
 
 interface HeaderProps {
   onToggleSidebar: () => void;
+  onToggleMobileMenu: () => void;
   onOpenGlobalSearch: () => void;
 }
 
-export function Header({ onToggleSidebar, onOpenGlobalSearch }: HeaderProps) {
+export function Header({ onToggleSidebar, onToggleMobileMenu, onOpenGlobalSearch }: HeaderProps) {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
@@ -77,38 +78,57 @@ export function Header({ onToggleSidebar, onOpenGlobalSearch }: HeaderProps) {
   };
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-border bg-card px-4 select-none z-20">
+    <header className="flex h-14 items-center justify-between border-b border-border bg-card px-2 sm:px-4 select-none z-20 min-w-0">
       {/* Right side: Menu Toggle + Breadcrumb */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1 sm:gap-3 shrink-0">
+        {/* Desktop Sidebar Toggle */}
         <button
           onClick={onToggleSidebar}
-          className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+          className="hidden md:flex p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
           title="القائمة"
         >
           <Menu className="h-5 w-5" />
         </button>
 
-        <div className="flex items-center gap-2 text-sm">
-          <span className="font-semibold text-foreground">{getBreadcrumbTitle()}</span>
+        {/* Mobile Sidebar Toggle */}
+        <button
+          onClick={onToggleMobileMenu}
+          className="flex md:hidden p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+          title="القائمة"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+
+        <div className="flex items-center gap-2 text-sm max-w-[120px] sm:max-w-[200px] md:max-w-[300px]">
+          <span className="font-semibold text-foreground truncate">{getBreadcrumbTitle()}</span>
         </div>
       </div>
 
       {/* Center: Search trigger with Ctrl+K shortcut badge */}
-      <button
-        onClick={onOpenGlobalSearch}
-        className="hidden md:flex items-center gap-3 rounded-md border border-input bg-background/50 px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted transition-colors w-72 justify-between"
-      >
-        <div className="flex items-center gap-2">
-          <Search className="h-3.5 w-3.5" />
-          <span>بحث سريع عن منتج أو عميل...</span>
-        </div>
-        <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-          Ctrl+K
-        </kbd>
-      </button>
+      <div className="flex-1 flex justify-end md:justify-center px-2">
+        <button
+          onClick={onOpenGlobalSearch}
+          className="hidden md:flex items-center gap-3 rounded-md border border-input bg-background/50 px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted transition-colors w-72 justify-between"
+        >
+          <div className="flex items-center gap-2 truncate">
+            <Search className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">بحث سريع عن منتج أو عميل...</span>
+          </div>
+          <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground shrink-0">
+            Ctrl+K
+          </kbd>
+        </button>
+        <button
+          onClick={onOpenGlobalSearch}
+          className="flex md:hidden p-2 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+          title="بحث سريع"
+        >
+          <Search className="h-4 w-4" />
+        </button>
+      </div>
 
       {/* Left side: Notifications, Theme Toggle, User Menu */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 shrink-0">
         {/* Notifications Icon (if feature enabled) */}
         {hasNotifications && (
           <Link
@@ -139,15 +159,15 @@ export function Header({ onToggleSidebar, onOpenGlobalSearch }: HeaderProps) {
         {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger>
-            <div className="flex items-center gap-2 cursor-pointer p-1.5 rounded-md hover:bg-muted transition-colors">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xs">
+            <div className="flex items-center gap-2 cursor-pointer p-1.5 rounded-md hover:bg-muted transition-colors min-w-0 max-w-[120px] sm:max-w-none">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xs">
                 {user?.full_name?.charAt(0) || "م"}
               </div>
-              <div className="hidden sm:flex flex-col text-right">
-                <span className="text-xs font-semibold text-foreground leading-tight">
+              <div className="hidden sm:flex flex-col text-right min-w-0">
+                <span className="text-xs font-semibold text-foreground leading-tight truncate">
                   {user?.full_name || "المدير"}
                 </span>
-                <span className="text-[10px] text-muted-foreground">
+                <span className="text-[10px] text-muted-foreground truncate">
                   {user?.role_name_ar || "مدير النظام"}
                 </span>
               </div>

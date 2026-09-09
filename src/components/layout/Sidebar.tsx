@@ -47,9 +47,10 @@ interface NavSection {
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  isMobile?: boolean;
 }
 
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, isMobile }: SidebarProps) {
   const hasFeature = useFeatureStore((s) => s.hasFeature);
   const hasPermission = useAuthStore((s) => s.hasPermission);
 
@@ -115,24 +116,25 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "relative flex flex-col border-l border-border bg-card transition-all duration-300 select-none z-30",
-        collapsed ? "w-16" : "w-64"
+        "relative flex flex-col border-border bg-card transition-all duration-300 select-none z-30",
+        isMobile ? "w-full border-none h-full" : "hidden md:flex border-l",
+        !isMobile && (collapsed ? "w-16" : "w-64")
       )}
     >
       {/* Brand Header */}
       <div className="flex h-14 items-center justify-between px-3 border-b border-border">
-        {!collapsed && (
+        {(!collapsed || isMobile) && (
           <div className="flex items-center gap-2 pr-1">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground font-bold">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground font-bold shrink-0">
               م
             </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-bold leading-tight text-foreground">مدير المخزن</span>
-              <span className="text-[10px] text-muted-foreground">نظام ERP محلي</span>
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-bold leading-tight text-foreground truncate">مدير المخزن</span>
+              <span className="text-[10px] text-muted-foreground truncate">نظام ERP محلي</span>
             </div>
           </div>
         )}
-        {collapsed && (
+        {collapsed && !isMobile && (
           <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground font-bold">
             م
           </div>
@@ -141,8 +143,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         <button
           onClick={onToggle}
           className={cn(
-            "p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors",
-            collapsed && "hidden"
+            "p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0",
+            (collapsed || isMobile) && "hidden"
           )}
           title={collapsed ? "توسيع القائمة" : "طي القائمة"}
         >
@@ -190,11 +192,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     }
                   >
                     <Icon className="h-4 w-4 shrink-0" />
-                    {!collapsed && <span>{item.title}</span>}
+                    {(!collapsed || isMobile) && <span className="truncate">{item.title}</span>}
                   </NavLink>
                 );
 
-                if (collapsed) {
+                if (collapsed && !isMobile) {
                   return (
                     <Tooltip key={item.id} content={item.title} side="left">
                       {linkContent}
@@ -210,7 +212,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </div>
 
       {/* Footer Toggle button when collapsed */}
-      {collapsed && (
+      {collapsed && !isMobile && (
         <div className="p-2 border-t border-border flex justify-center">
           <button
             onClick={onToggle}
