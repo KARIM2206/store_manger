@@ -141,7 +141,7 @@ export function SalesPage() {
     const nameQ = customerName.trim().toLowerCase();
     const phoneQ = customerPhone.trim().toLowerCase();
     
-    if (!nameQ && !phoneQ) return [];
+    if (!nameQ && !phoneQ) return customers.slice(0, 20);
     
     return customers.filter((c) => {
       const matchName = nameQ ? c.name.toLowerCase().includes(nameQ) : true;
@@ -154,18 +154,22 @@ export function SalesPage() {
          return c.phone && c.phone.includes(phoneQ);
       }
       return matchName && matchPhone;
-    }).slice(0, 5);
+    }).slice(0, 20);
   }, [customerName, customerPhone, customers, activeInput]);
 
   React.useEffect(() => {
-    if (matchedCustomers.length > 0 && (customerName.trim() || customerPhone.trim())) {
-      setHintedCustomer(matchedCustomers[0]);
+    if (matchedCustomers.length > 0 && (customerName.trim() || customerPhone.trim() || activeInput)) {
+      if (customerName.trim() || customerPhone.trim()) {
+        setHintedCustomer(matchedCustomers[0]);
+      } else {
+        setHintedCustomer(null);
+      }
       setShowCustomerHints(true);
     } else {
       setHintedCustomer(null);
       setShowCustomerHints(false);
     }
-  }, [matchedCustomers, customerName, customerPhone]);
+  }, [matchedCustomers, customerName, customerPhone, activeInput]);
 
   const handleCustomerKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Tab" && hintedCustomer) {
@@ -655,7 +659,7 @@ export function SalesPage() {
                           }}
                           onFocus={() => {
                             setActiveInput("name");
-                            if (matchedCustomers.length > 0 && customerName.trim()) setShowCustomerHints(true);
+                            if (customers.length > 0) setShowCustomerHints(true);
                           }}
                           onBlur={() => setTimeout(() => setShowCustomerHints(false), 200)}
                           onKeyDown={handleCustomerKeyDown}
@@ -674,7 +678,7 @@ export function SalesPage() {
                           }}
                           onFocus={() => {
                             setActiveInput("phone");
-                            if (matchedCustomers.length > 0 && customerPhone.trim()) setShowCustomerHints(true);
+                            if (customers.length > 0) setShowCustomerHints(true);
                           }}
                           onBlur={() => setTimeout(() => setShowCustomerHints(false), 200)}
                           onKeyDown={handleCustomerKeyDown}
