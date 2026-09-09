@@ -70,10 +70,13 @@ export function SalesPage() {
   const [barcodeInput, setBarcodeInput] = React.useState("");
 
   // Customer search with autocomplete
-  const [customerSearchText, setCustomerSearchText] = React.useState("");
+  const [customerName, setCustomerName] = React.useState("");
+  const [customerPhone, setCustomerPhone] = React.useState("");
+  const [activeInput, setActiveInput] = React.useState<"name" | "phone" | null>(null);
   const [showCustomerHints, setShowCustomerHints] = React.useState(false);
   const [hintedCustomer, setHintedCustomer] = React.useState<CustomerRow | null>(null);
-  const customerInputRef = React.useRef<HTMLInputElement>(null);
+  const customerNameInputRef = React.useRef<HTMLInputElement>(null);
+  const customerPhoneInputRef = React.useRef<HTMLInputElement>(null);
 
   // History State
   const [salesHistory, setSalesHistory] = React.useState<SaleRow[]>([]);
@@ -135,47 +138,63 @@ export function SalesPage() {
 
   // Customer search & autocomplete logic
   const matchedCustomers = React.useMemo(() => {
-    if (!customerSearchText.trim()) return [];
-    const q = customerSearchText.trim().toLowerCase();
-    return customers.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        (c.phone && c.phone.includes(q))
-    ).slice(0, 5);
-  }, [customerSearchText, customers]);
+    const nameQ = customerName.trim().toLowerCase();
+    const phoneQ = customerPhone.trim().toLowerCase();
+    
+    if (!nameQ && !phoneQ) return [];
+    
+    return customers.filter((c) => {
+      const matchName = nameQ ? c.name.toLowerCase().includes(nameQ) : true;
+      const matchPhone = phoneQ ? (c.phone && c.phone.includes(phoneQ)) : true;
+      
+      if (activeInput === "name" && nameQ) {
+         return c.name.toLowerCase().includes(nameQ);
+      }
+      if (activeInput === "phone" && phoneQ) {
+         return c.phone && c.phone.includes(phoneQ);
+      }
+      return matchName && matchPhone;
+    }).slice(0, 5);
+  }, [customerName, customerPhone, customers, activeInput]);
 
   React.useEffect(() => {
-    if (matchedCustomers.length > 0 && customerSearchText.trim()) {
+    if (matchedCustomers.length > 0 && (customerName.trim() || customerPhone.trim())) {
       setHintedCustomer(matchedCustomers[0]);
       setShowCustomerHints(true);
     } else {
       setHintedCustomer(null);
       setShowCustomerHints(false);
     }
-  }, [matchedCustomers, customerSearchText]);
+  }, [matchedCustomers, customerName, customerPhone]);
 
   const handleCustomerKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Tab" && hintedCustomer) {
       e.preventDefault();
-      setCustomerSearchText(hintedCustomer.name);
+      setCustomerName(hintedCustomer.name);
+      setCustomerPhone(hintedCustomer.phone || "");
       setSelectedCustomerId(hintedCustomer.id);
       setShowCustomerHints(false);
       setHintedCustomer(null);
+      setActiveInput(null);
     }
   };
 
   const selectCustomerFromList = (c: CustomerRow) => {
-    setCustomerSearchText(c.name);
+    setCustomerName(c.name);
+    setCustomerPhone(c.phone || "");
     setSelectedCustomerId(c.id);
     setShowCustomerHints(false);
     setHintedCustomer(null);
+    setActiveInput(null);
   };
 
   const clearCustomerSelection = () => {
-    setCustomerSearchText("");
+    setCustomerName("");
+    setCustomerPhone("");
     setSelectedCustomerId("");
     setHintedCustomer(null);
     setShowCustomerHints(false);
+    setActiveInput(null);
   };
 
   // Add Product to Cart
@@ -316,15 +335,42 @@ export function SalesPage() {
       }
     }
 
-    if (paymentType === "CREDIT" && !selectedCustomerId) {
-      setPosError("يجب اختيار العميل عند البيع الآجل.");
+    let finalCustomerId = selectedCustomerId;
+
+    // Create a customer on the fly if name is entered but no customer is selected
+    if (!finalCustomerId && customerName.trim()) {
+      try {
+         const newCust = await customerRepository.create({
+            name: customerName.trim(),
+            phone: customerPhone.trim() || null,
+            address: null,
+            notes: "أضيف من نقطة البيع",
+            is_active: 1
+         });
+         finalCustomerId = newCust.id;
+         // Refresh customers list after creation
+         if (hasCustomers) {
+           const custs = await customerRepository.getAll();
+           setCustomers(custs);
+         }
+      } catch (err) {
+         console.warn("Could not create customer implicitly", err);
+         if (paymentType === "CREDIT") {
+            setPosError("تعذر إنشاء العميل. يرجى اختيار العميل من القائمة أو التأكد من صحة البيانات.");
+            return;
+         }
+      }
+    }
+
+    if (paymentType === "CREDIT" && !finalCustomerId) {
+      setPosError("يجب اختيار العميل أو إدخال اسمه عند البيع الآجل.");
       return;
     }
 
     setSubmitting(true);
     try {
       const sale = await salesRepository.createSale({
-        customerId: selectedCustomerId || null,
+        customerId: finalCustomerId || null,
         userId: user?.id || "user-admin",
         items: cart.map((i) => ({
           productId: i.product.id,
@@ -580,54 +626,69 @@ export function SalesPage() {
                 <div className="border-t border-border pt-3 space-y-2.5">
                   {/* Customer Selection with Autocomplete */}
                   {hasCustomers && (
-                    <div className="space-y-1 text-right relative">
-                      <label className="text-[11px] font-semibold text-foreground flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        العميل (اكتب اسم أو رقم تليفون)
-                      </label>
-                      <div className="relative">
-                        <Input
-                          ref={customerInputRef}
-                          value={customerSearchText}
-                          onChange={(e) => {
-                            setCustomerSearchText(e.target.value);
-                            // If user clears or changes text, reset customer selection
-                            if (selectedCustomerId) {
-                              const selectedCust = customers.find(c => c.id === selectedCustomerId);
-                              if (selectedCust && e.target.value !== selectedCust.name) {
-                                setSelectedCustomerId("");
-                              }
-                            }
-                          }}
-                          onKeyDown={handleCustomerKeyDown}
-                          onFocus={() => {
-                            if (matchedCustomers.length > 0 && customerSearchText.trim()) {
-                              setShowCustomerHints(true);
-                            }
-                          }}
-                          onBlur={() => {
-                            // Delay to allow click on dropdown
-                            setTimeout(() => setShowCustomerHints(false), 200);
-                          }}
-                          placeholder="عميل نقدي — أو ابحث باسم العميل أو رقم التليفون..."
-                          className="h-8 text-xs"
-                        />
-                        {/* Hint text (ghost autocomplete) */}
-                        {hintedCustomer && customerSearchText.trim() && !selectedCustomerId && (
-                          <div className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">
-                            اضغط Tab ← <span className="font-semibold text-foreground/70">{hintedCustomer.name}</span>
-                            {hintedCustomer.phone && <span className="mr-1">({hintedCustomer.phone})</span>}
-                          </div>
-                        )}
-                        {/* Selected customer badge */}
+                    <div className="space-y-2 text-right relative bg-muted/20 p-2.5 rounded-lg border border-border">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-semibold text-foreground flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          بيانات العميل (بحث ذكي)
+                        </label>
                         {selectedCustomerId && (
                           <button
                             type="button"
                             onClick={clearCustomerSelection}
-                            className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-md hover:bg-primary/20 transition-colors"
+                            className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-md hover:bg-primary/20 transition-colors"
                           >
-                            ✓ عميل مسجل — إزالة
+                            ✓ مسجل — إزالة
                           </button>
+                        )}
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2 relative">
+                        <Input
+                          ref={customerNameInputRef}
+                          value={customerName}
+                          onChange={(e) => {
+                            setCustomerName(e.target.value);
+                            if (selectedCustomerId && e.target.value !== customers.find(c => c.id === selectedCustomerId)?.name) {
+                              setSelectedCustomerId("");
+                            }
+                          }}
+                          onFocus={() => {
+                            setActiveInput("name");
+                            if (matchedCustomers.length > 0 && customerName.trim()) setShowCustomerHints(true);
+                          }}
+                          onBlur={() => setTimeout(() => setShowCustomerHints(false), 200)}
+                          onKeyDown={handleCustomerKeyDown}
+                          placeholder="اسم العميل..."
+                          className="h-8 text-xs bg-background"
+                        />
+                        
+                        <Input
+                          ref={customerPhoneInputRef}
+                          value={customerPhone}
+                          onChange={(e) => {
+                            setCustomerPhone(e.target.value);
+                            if (selectedCustomerId && e.target.value !== customers.find(c => c.id === selectedCustomerId)?.phone) {
+                              setSelectedCustomerId("");
+                            }
+                          }}
+                          onFocus={() => {
+                            setActiveInput("phone");
+                            if (matchedCustomers.length > 0 && customerPhone.trim()) setShowCustomerHints(true);
+                          }}
+                          onBlur={() => setTimeout(() => setShowCustomerHints(false), 200)}
+                          onKeyDown={handleCustomerKeyDown}
+                          placeholder="رقم التليفون..."
+                          className="h-8 text-xs font-mono bg-background text-left"
+                          dir="ltr"
+                        />
+
+                        {/* Hint text (ghost autocomplete) */}
+                        {hintedCustomer && (customerName.trim() || customerPhone.trim()) && !selectedCustomerId && (
+                          <div className="absolute right-2 top-[110%] text-[10px] text-muted-foreground pointer-events-none whitespace-nowrap z-10">
+                            اضغط Tab ← <span className="font-semibold text-foreground/70">{hintedCustomer.name}</span>
+                            {hintedCustomer.phone && <span className="mr-1 font-mono">({hintedCustomer.phone})</span>}
+                          </div>
                         )}
                       </div>
                       {/* Dropdown suggestions */}
