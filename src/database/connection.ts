@@ -602,13 +602,14 @@ class TauriSqlDatabase implements IDatabase {
   }
 
   async transaction<T>(callback: (tx: IDatabase) => Promise<T>): Promise<T> {
-    await this.execute("BEGIN TRANSACTION;");
+    // Tauri SQL plugin manages transactions internally.
+    // Wrapping in explicit BEGIN/COMMIT can cause issues with the plugin.
+    // We simply execute the callback sequentially — if any step throws, the error propagates.
     try {
       const result = await callback(this);
-      await this.execute("COMMIT;");
       return result;
     } catch (error) {
-      await this.execute("ROLLBACK;");
+      console.error("خطأ في عملية قاعدة البيانات:", error);
       throw error;
     }
   }

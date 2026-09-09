@@ -17,6 +17,7 @@ import {
   AlertCircle,
   Package,
   RotateCcw,
+  User,
 } from "lucide-react";
 import { salesRepository } from "@/database/repositories/salesRepository";
 import { productRepository } from "@/database/repositories/productRepository";
@@ -44,6 +45,9 @@ interface CartItem {
   discount: number;
 }
 
+// Max quantity per item to prevent user mistakes
+const MAX_QUANTITY = 9999;
+
 export function SalesPage() {
   const { user } = useAuthStore();
   const hasBarcode = useFeature("barcode");
@@ -64,6 +68,12 @@ export function SalesPage() {
   const [paidAmount, setPaidAmount] = React.useState<number>(0);
   const [notes, setNotes] = React.useState("");
   const [barcodeInput, setBarcodeInput] = React.useState("");
+
+  // Customer search with autocomplete
+  const [customerSearchText, setCustomerSearchText] = React.useState("");
+  const [showCustomerHints, setShowCustomerHints] = React.useState(false);
+  const [hintedCustomer, setHintedCustomer] = React.useState<CustomerRow | null>(null);
+  const customerInputRef = React.useRef<HTMLInputElement>(null);
 
   // History State
   const [salesHistory, setSalesHistory] = React.useState<SaleRow[]>([]);
@@ -123,6 +133,51 @@ export function SalesPage() {
     }
   }, [activeTab]);
 
+  // Customer search & autocomplete logic
+  const matchedCustomers = React.useMemo(() => {
+    if (!customerSearchText.trim()) return [];
+    const q = customerSearchText.trim().toLowerCase();
+    return customers.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        (c.phone && c.phone.includes(q))
+    ).slice(0, 5);
+  }, [customerSearchText, customers]);
+
+  React.useEffect(() => {
+    if (matchedCustomers.length > 0 && customerSearchText.trim()) {
+      setHintedCustomer(matchedCustomers[0]);
+      setShowCustomerHints(true);
+    } else {
+      setHintedCustomer(null);
+      setShowCustomerHints(false);
+    }
+  }, [matchedCustomers, customerSearchText]);
+
+  const handleCustomerKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Tab" && hintedCustomer) {
+      e.preventDefault();
+      setCustomerSearchText(hintedCustomer.name);
+      setSelectedCustomerId(hintedCustomer.id);
+      setShowCustomerHints(false);
+      setHintedCustomer(null);
+    }
+  };
+
+  const selectCustomerFromList = (c: CustomerRow) => {
+    setCustomerSearchText(c.name);
+    setSelectedCustomerId(c.id);
+    setShowCustomerHints(false);
+    setHintedCustomer(null);
+  };
+
+  const clearCustomerSelection = () => {
+    setCustomerSearchText("");
+    setSelectedCustomerId("");
+    setHintedCustomer(null);
+    setShowCustomerHints(false);
+  };
+
   // Add Product to Cart
   const addToCart = (product: ProductRow) => {
     setPosError(null);
@@ -130,6 +185,10 @@ export function SalesPage() {
 
     if (existingIndex > -1) {
       const currentCartQty = cart[existingIndex].quantity;
+      if (currentCartQty >= MAX_QUANTITY) {
+        setPosError(`الحد الأقصى للكمية هو ${MAX_QUANTITY}.`);
+        return;
+      }
       if (!allowNegativeStock && currentCartQty + 1 > product.current_stock) {
         setPosError(`الرصيد المتاح من "${product.name}" هو ${product.current_stock} فقط.`);
         return;
@@ -176,6 +235,10 @@ export function SalesPage() {
       removeFromCart(index);
       return;
     }
+    if (newQty > MAX_QUANTITY) {
+      setPosError(`الحد الأقصى للكمية هو ${MAX_QUANTITY}.`);
+      return;
+    }
     const item = cart[index];
     if (!allowNegativeStock && newQty > item.product.current_stock) {
       setPosError(`الرصيد المتاح من "${item.product.name}" هو ${item.product.current_stock} فقط.`);
@@ -184,6 +247,25 @@ export function SalesPage() {
     const newCart = [...cart];
     newCart[index].quantity = newQty;
     setCart(newCart);
+  };
+
+  const handleQuantityInputChange = (index: number, value: string) => {
+    const num = parseInt(value, 10);
+    if (value === "" || value === "0") {
+      // Allow empty input temporarily, don't remove yet
+      const newCart = [...cart];
+      newCart[index].quantity = 0;
+      setCart(newCart);
+      return;
+    }
+    if (isNaN(num) || num < 0) return;
+    updateQuantity(index, num);
+  };
+
+  const handleQuantityBlur = (index: number) => {
+    if (cart[index].quantity <= 0) {
+      removeFromCart(index);
+    }
   };
 
   const updateUnitPrice = (index: number, price: number) => {
@@ -203,6 +285,7 @@ export function SalesPage() {
     setPaidAmount(0);
     setNotes("");
     setPosError(null);
+    clearCustomerSelection();
   };
 
   // Calculations
@@ -223,6 +306,14 @@ export function SalesPage() {
     if (cart.length === 0) {
       setPosError("السلة فارغة. أضف منتجات أولاً.");
       return;
+    }
+
+    // Validate quantities
+    for (const item of cart) {
+      if (item.quantity <= 0 || item.quantity > MAX_QUANTITY) {
+        setPosError(`كمية غير صالحة للمنتج "${item.product.name}". الحد الأقصى ${MAX_QUANTITY}.`);
+        return;
+      }
     }
 
     if (paymentType === "CREDIT" && !selectedCustomerId) {
@@ -252,6 +343,7 @@ export function SalesPage() {
       clearCart();
       await loadInitialData(); // reload product stock
     } catch (err: any) {
+      console.error("خطأ أثناء حفظ الفاتورة:", err);
       setPosError(err?.message || "حدث خطأ أثناء حفظ الفاتورة");
     } finally {
       setSubmitting(false);
@@ -439,7 +531,7 @@ export function SalesPage() {
                           </span>
                         </div>
 
-                        {/* Quantity Controls */}
+                        {/* Quantity Controls with Input */}
                         <div className="flex items-center gap-1">
                           <button
                             type="button"
@@ -448,7 +540,15 @@ export function SalesPage() {
                           >
                             <Minus className="h-3 w-3" />
                           </button>
-                          <span className="font-bold font-mono px-1.5 text-xs">{item.quantity}</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max={MAX_QUANTITY}
+                            value={item.quantity || ""}
+                            onChange={(e) => handleQuantityInputChange(idx, e.target.value)}
+                            onBlur={() => handleQuantityBlur(idx)}
+                            className="w-12 h-6 text-center text-xs font-bold font-mono border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
                           <button
                             type="button"
                             onClick={() => updateQuantity(idx, item.quantity + 1)}
@@ -478,22 +578,84 @@ export function SalesPage() {
 
                 {/* Checkout Controls */}
                 <div className="border-t border-border pt-3 space-y-2.5">
-                  {/* Customer Selection (if enabled) */}
+                  {/* Customer Selection with Autocomplete */}
                   {hasCustomers && (
-                    <div className="space-y-1 text-right">
-                      <label className="text-[11px] font-semibold text-foreground">العميل (اختياري)</label>
-                      <Select
-                        value={selectedCustomerId}
-                        onChange={(e) => setSelectedCustomerId(e.target.value)}
-                        className="h-8 text-xs"
-                      >
-                        <option value="">عميل نقدي عام</option>
-                        {customers.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name} {c.balance > 0 ? `(مديونية: ${c.balance} ج.م)` : ""}
-                          </option>
-                        ))}
-                      </Select>
+                    <div className="space-y-1 text-right relative">
+                      <label className="text-[11px] font-semibold text-foreground flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        العميل (اكتب اسم أو رقم تليفون)
+                      </label>
+                      <div className="relative">
+                        <Input
+                          ref={customerInputRef}
+                          value={customerSearchText}
+                          onChange={(e) => {
+                            setCustomerSearchText(e.target.value);
+                            // If user clears or changes text, reset customer selection
+                            if (selectedCustomerId) {
+                              const selectedCust = customers.find(c => c.id === selectedCustomerId);
+                              if (selectedCust && e.target.value !== selectedCust.name) {
+                                setSelectedCustomerId("");
+                              }
+                            }
+                          }}
+                          onKeyDown={handleCustomerKeyDown}
+                          onFocus={() => {
+                            if (matchedCustomers.length > 0 && customerSearchText.trim()) {
+                              setShowCustomerHints(true);
+                            }
+                          }}
+                          onBlur={() => {
+                            // Delay to allow click on dropdown
+                            setTimeout(() => setShowCustomerHints(false), 200);
+                          }}
+                          placeholder="عميل نقدي — أو ابحث باسم العميل أو رقم التليفون..."
+                          className="h-8 text-xs"
+                        />
+                        {/* Hint text (ghost autocomplete) */}
+                        {hintedCustomer && customerSearchText.trim() && !selectedCustomerId && (
+                          <div className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">
+                            اضغط Tab ← <span className="font-semibold text-foreground/70">{hintedCustomer.name}</span>
+                            {hintedCustomer.phone && <span className="mr-1">({hintedCustomer.phone})</span>}
+                          </div>
+                        )}
+                        {/* Selected customer badge */}
+                        {selectedCustomerId && (
+                          <button
+                            type="button"
+                            onClick={clearCustomerSelection}
+                            className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-md hover:bg-primary/20 transition-colors"
+                          >
+                            ✓ عميل مسجل — إزالة
+                          </button>
+                        )}
+                      </div>
+                      {/* Dropdown suggestions */}
+                      {showCustomerHints && matchedCustomers.length > 0 && !selectedCustomerId && (
+                        <div className="absolute z-50 w-full bg-card border border-border rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
+                          {matchedCustomers.map((c) => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => selectCustomerFromList(c)}
+                              className="w-full text-right px-3 py-2 hover:bg-muted/50 text-xs flex justify-between items-center border-b border-border/30 last:border-b-0 transition-colors"
+                            >
+                              <div>
+                                <span className="font-semibold text-foreground">{c.name}</span>
+                                {c.phone && (
+                                  <span className="text-muted-foreground mr-2 font-mono text-[10px]">{c.phone}</span>
+                                )}
+                              </div>
+                              {c.balance > 0 && (
+                                <Badge variant="warning" className="text-[9px] px-1 py-0">
+                                  مديونية: {formatCurrency(c.balance)}
+                                </Badge>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 
